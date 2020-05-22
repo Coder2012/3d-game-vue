@@ -7,8 +7,9 @@ class Player extends MovingEntity {
   constructor() {
     super();
 
+    this.boundingRadius = 0.2;
     this.maxSpeed = 4;
-    this.height = 2;
+    this.height = 1;
 
     this.head = new GameEntity();
     this.add(this.head);
@@ -26,8 +27,9 @@ class Player extends MovingEntity {
     endPosition.copy(this.position);
 
     // ensure the entity stays inside its navmesh
-
-    this.currentRegion = this.navMesh.clampMovement(this.currentRegion, startPosition, endPosition, this.position);
+    // if (this.navMesh) {
+      this.currentRegion = this.navMesh.clampMovement(this.currentRegion, startPosition, endPosition, this.position);
+    // }
 
     // adjust height of player according to the ground
 

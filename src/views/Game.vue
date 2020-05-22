@@ -1,5 +1,8 @@
 <template>
-  <div id="container"></div>
+  <div id="container">
+    <Inventory/>
+  </div>
+
 </template>
 <script>
 import * as THREE from 'three';
@@ -10,9 +13,13 @@ import { onMounted } from '@vue/composition-api';
 import { Player } from '@/yuka/Player.js';
 import { createConvexRegionHelper } from '@/yuka/NavMeshHelper.js';
 import { FirstPersonControls } from '@/yuka/FirstPersonControls.js';
+import { createTeleport, createCollectable } from '@/yuka/triggers';
+
+import Inventory from '@/views/components/Inventory';
 
 export default {
   name: 'Game',
+  components: { Inventory },
   setup() {
     let camera, scene, renderer, helper;
 
@@ -22,16 +29,16 @@ export default {
     const init = () => {
       const container = document.getElementById('container');
 
-      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.01, 10);
+      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.01, 200);
       camera.matrixAutoUpdate = false;
-      camera.position.set(0, 2, 0);
+      // camera.position.set(0, 0, 0);
 
       scene = new THREE.Scene();
 
       const color = 0xffffff;
       const intensity = 0.8;
       const light = new THREE.PointLight(color, intensity);
-      light.position.set(0, 2, 0);
+      light.position.set(-1, 3, 1);
       scene.add(light);
 
       helper = new THREE.PointLightHelper(light, 0.1);
@@ -40,6 +47,7 @@ export default {
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.gammaOutput = true;
+      renderer.setPixelRatio(window.devicePixelRatio);
       container.appendChild(renderer.domElement);
 
       entityManager = new YUKA.EntityManager();
@@ -47,10 +55,10 @@ export default {
 
       const player = new Player();
       player.head.setRenderComponent(camera, sync);
-      player.position.set(0, 1.4, 0);
+      player.position.set(0, 0.75, 2);
 
       controls = new FirstPersonControls(player);
-      controls.lookSpeed = 4;
+      controls.lookSpeed = 2;
       controls.setRotation(-2.2, 0.2);
 
       entityManager.add(player);
@@ -60,41 +68,62 @@ export default {
         navMeshLoader.load('./models/navmesh.glb', { epsilonCoplanarTest: 0.25 }).then(navMesh => {
           player.navMesh = navMesh;
 
-          const navMeshGroup = createConvexRegionHelper(navMesh);
-          navMeshGroup.rotation.x = THREE.MathUtils.degToRad(90);
-          navMeshGroup.position.y = 0;
-          scene.add(navMeshGroup);
+          // const navMeshGroup = createConvexRegionHelper(navMesh);
+          // navMeshGroup.rotation.x = THREE.Math.degToRad(-90);
+          // navMeshGroup.position.y = 0.1;
+          // scene.add(navMeshGroup);
 
-          controls.connect();
           animate();
         });
       });
-      
+
       const modelLoader = new GLTFLoader(loadingManager);
       modelLoader.load('/models/room.glb', function(gltf) {
         scene.add(gltf.scene);
-        // gltf.scene.traverse(object => {
-        //   object.matrixAutoUpdate = false;
-        //   object.updateMatrix();
+        // console.log(gltf.scene);
+        const teleportIn = gltf.scene.children.find(
+          ({ userData }) => userData.type === 'teleport' && userData.direction === 'in'
+        );
 
-        //   if (object.isMesh) object.material.alphaTest = 0.5;
-        // });
+        const teleportOut = gltf.scene.children.find(
+          ({ userData }) => userData.type === 'teleport' && userData.direction === 'out'
+        );
+
+        gltf.scene.traverse(object => {
+          if (object.userData.type === 'collectable') {
+            console.log(object);
+            entityManager.add(createCollectable(object));
+          }
+        });
+
+        teleportOut.position.y = 0.1;
+        entityManager.add(createTeleport(teleportIn, teleportOut));
+      });
+
+      document.querySelector('#container').addEventListener('click', () => {
+        controls.connect();
       });
     };
 
     const animate = () => {
-      requestAnimationFrame(animate);
-
-      const delta = time.update().getDelta();
-      // controls.update(time);
-      entityManager.update(delta);
-      helper.update();
+      try {
+        const delta = time.update().getDelta();
+        controls.update(delta);
+        entityManager.update(delta);
+        helper.update();
+        requestAnimationFrame(animate);
+      } catch (err) {
+        console.log('error: ', err);
+      }
 
       renderer.render(scene, camera);
     };
 
     const sync = (entity, renderComponent) => {
       renderComponent.matrixWorld.copy(entity.worldMatrix);
+    };
+    const sync2 = (entity, renderComponent) => {
+      renderComponent.matrix.copy(entity.worldMatrix);
     };
 
     onMounted(() => {
@@ -104,7 +133,8 @@ export default {
 };
 </script>
 <style lang="scss" scoped>
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
 }
