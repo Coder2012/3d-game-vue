@@ -8,11 +8,12 @@
 import * as THREE from 'three';
 import * as YUKA from 'yuka';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader';
 import { onMounted } from '@vue/composition-api';
 
-import { Player } from '@/yuka/Player.js';
-import { createConvexRegionHelper } from '@/yuka/NavMeshHelper.js';
-import { FirstPersonControls } from '@/yuka/FirstPersonControls.js';
+import { Player } from '@/yuka/Player';
+import { createConvexRegionHelper } from '@/yuka/NavMeshHelper';
+import { FirstPersonControls } from '@/yuka/FirstPersonControls';
 import { createTeleport, createCollectable } from '@/yuka/triggers';
 
 import Inventory from '@/views/components/Inventory';
@@ -37,11 +38,14 @@ export default {
 
       const color = 0xffffff;
       const intensity = 0.8;
-      const light = new THREE.PointLight(color, intensity);
-      light.position.set(-1, 3, 1);
+      const light = new THREE.SpotLight(color, intensity);
+      light.power = 40;
+      light.decay = 2;
+      light.distance = Infinity;
+      light.position.set(0, 30, 0);
       scene.add(light);
 
-      helper = new THREE.PointLightHelper(light, 0.1);
+      helper = new THREE.SpotLightHelper(light, 0.1);
       scene.add(helper);
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -55,7 +59,7 @@ export default {
 
       const player = new Player();
       player.head.setRenderComponent(camera, sync);
-      player.position.set(0, 0.75, 2);
+      player.position.set(0, 0.75, 0);
 
       controls = new FirstPersonControls(player);
       controls.lookSpeed = 2;
@@ -65,13 +69,13 @@ export default {
 
       const loadingManager = new THREE.LoadingManager(() => {
         const navMeshLoader = new YUKA.NavMeshLoader();
-        navMeshLoader.load('./models/navmesh.glb', { epsilonCoplanarTest: 0.25 }).then(navMesh => {
+        navMeshLoader.load('/models/navmesh.glb', { epsilonCoplanarTest: 0.25 }).then(navMesh => {
           player.navMesh = navMesh;
 
-          // const navMeshGroup = createConvexRegionHelper(navMesh);
+          const navMeshGroup = createConvexRegionHelper(navMesh);
           // navMeshGroup.rotation.x = THREE.Math.degToRad(-90);
-          // navMeshGroup.position.y = 0.1;
-          // scene.add(navMeshGroup);
+          navMeshGroup.position.y = -0.01;
+          scene.add(navMeshGroup);
 
           animate();
         });
@@ -81,23 +85,23 @@ export default {
       modelLoader.load('/models/room.glb', function(gltf) {
         scene.add(gltf.scene);
         // console.log(gltf.scene);
-        const teleportIn = gltf.scene.children.find(
-          ({ userData }) => userData.type === 'teleport' && userData.direction === 'in'
-        );
+        // const teleportIn = gltf.scene.children.find(
+        //   ({ userData }) => userData.type === 'teleport' && userData.direction === 'in'
+        // );
 
-        const teleportOut = gltf.scene.children.find(
-          ({ userData }) => userData.type === 'teleport' && userData.direction === 'out'
-        );
+        // const teleportOut = gltf.scene.children.find(
+        //   ({ userData }) => userData.type === 'teleport' && userData.direction === 'out'
+        // );
 
-        gltf.scene.traverse(object => {
-          if (object.userData.type === 'collectable') {
-            console.log(object);
-            entityManager.add(createCollectable(object));
-          }
-        });
+        // gltf.scene.traverse(object => {
+        //   if (object.userData.type === 'collectable') {
+        //     console.log(object);
+        //     entityManager.add(createCollectable(object));
+        //   }
+        // });
 
-        teleportOut.position.y = 0.1;
-        entityManager.add(createTeleport(teleportIn, teleportOut));
+        // teleportOut.position.y = 0.1;
+        // entityManager.add(createTeleport(teleportIn, teleportOut));
       });
 
       document.querySelector('#container').addEventListener('click', () => {
