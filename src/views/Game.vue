@@ -22,7 +22,7 @@ export default {
   name: 'Game',
   components: { Inventory },
   setup() {
-    let camera, scene, renderer, helper;
+    let camera, scene, renderer, helper, pmremGenerator;
 
     // yuka
     let controls, entityManager, time;
@@ -43,7 +43,7 @@ export default {
       light.decay = 2;
       light.distance = Infinity;
       light.position.set(0, 30, 0);
-      scene.add(light);
+      // scene.add(light);
 
       helper = new THREE.SpotLightHelper(light, 0.1);
       scene.add(helper);
@@ -53,6 +53,9 @@ export default {
       renderer.gammaOutput = true;
       renderer.setPixelRatio(window.devicePixelRatio);
       container.appendChild(renderer.domElement);
+
+      pmremGenerator = new THREE.PMREMGenerator( renderer );
+      pmremGenerator.compileEquirectangularShader();
 
       entityManager = new YUKA.EntityManager();
       time = new YUKA.Time();
@@ -81,9 +84,21 @@ export default {
         });
       });
 
+      const loadEnvironmentMap = () => {
+        new RGBELoader()
+          .setDataType(THREE.UnsignedByteType)
+          .load('/environment/kloofendal_48d_partly_cloudy_2k.hdr', (texture) => {
+            const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+            pmremGenerator.dispose();
+            scene.environment = envMap;
+            scene.background = envMap;
+          });
+      }
+
       const modelLoader = new GLTFLoader(loadingManager);
       modelLoader.load('/models/room.glb', function(gltf) {
         scene.add(gltf.scene);
+        loadEnvironmentMap();
         // console.log(gltf.scene);
         // const teleportIn = gltf.scene.children.find(
         //   ({ userData }) => userData.type === 'teleport' && userData.direction === 'in'
